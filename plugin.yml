@@ -1,0 +1,11 @@
+name: ItemSerializer
+main: me.horsenuggets.is.Main
+version: 1.0
+author: HorseNuggets
+commands:
+   save:
+      description: Save your inventory to config.
+      usage: /save
+   load:
+      description: Load your inventory from config.
+      usage: /load
