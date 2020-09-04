@@ -30,8 +30,25 @@ public class Main extends JavaPlugin {
 		try {
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			ObjectOutputStream oos = new ObjectOutputStream(bos);
-			oos.writeObject(serializeItemStack(items));
+			
+			@SuppressWarnings("unchecked")
+			Map<String, Object>[] result = new Map[items.length];
+			for (int i = 0; i < items.length; i++) {
+				ItemStack is = items[i];
+				if (is == null) {
+					result[i] = new HashMap<>();
+				}
+				else {
+					result[i] = is.serialize();
+					if (is.hasItemMeta()) {
+						result[i].put("meta", is.getItemMeta().serialize());
+					}
+				}
+			}
+			
+			oos.writeObject(result);
 			oos.flush();
+			
 			return DatatypeConverter.printBase64Binary(bos.toByteArray());
 		}
 		catch (Exception e) {}
@@ -43,63 +60,41 @@ public class Main extends JavaPlugin {
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(DatatypeConverter.parseBase64Binary(s));
 			ObjectInputStream ois = new ObjectInputStream(bis);
-			return deserializeItemStack((Map<String, Object>[]) ois.readObject());
+			
+			Map<String, Object>[] map = (Map<String, Object>[]) ois.readObject();
+			
+			ItemStack[] items = new ItemStack[map.length];
+
+			for (int i = 0; i < items.length; i++) {
+				Map<String, Object> s1 = map[i];
+				if (s1.size() == 0) {
+					items[i] = null;
+				}
+				else {
+					try {
+						if (s1.containsKey("meta")) {
+							Map<String, Object> im = new HashMap<>((Map<String, Object>) s1.remove("meta"));
+							im.put("==", "ItemMeta");
+							ItemStack is = ItemStack.deserialize(s1);
+							is.setItemMeta((ItemMeta) ConfigurationSerialization.deserializeObject(im));
+							items[i] = is;
+						}
+						else {
+							items[i] = ItemStack.deserialize(s1);
+						}
+					}
+					catch (Exception e) {
+						items[i] = null;
+					}
+				}
+			}
+			
+			return items;
 		}
 		catch (Exception e) {}
 		return new ItemStack[] {
 			new ItemStack(Material.AIR)
 		};
-	}
-
-	@SuppressWarnings("unchecked")
-	private static Map<String, Object>[] serializeItemStack(ItemStack[] items) {
-		
-		Map<String, Object>[] result = new Map[items.length];
-		for (int i = 0; i < items.length; i++) {
-			ItemStack is = items[i];
-			if (is == null) {
-				result[i] = new HashMap<>();
-			}
-			else {
-				result[i] = is.serialize();
-				if (is.hasItemMeta()) {
-					result[i].put("meta", is.getItemMeta().serialize());
-				}
-			}
-		}
-
-		return result;
-	}
-
-	@SuppressWarnings("unchecked")
-	private static ItemStack[] deserializeItemStack(Map<String, Object>[] map) {
-		ItemStack[] items = new ItemStack[map.length];
-
-		for (int i = 0; i < items.length; i++) {
-			Map<String, Object> s = map[i];
-			if (s.size() == 0) {
-				items[i] = null;
-			}
-			else {
-				try {
-					if (s.containsKey("meta")) {
-						Map<String, Object> im = new HashMap<>((Map<String, Object>) s.remove("meta"));
-						im.put("==", "ItemMeta");
-						ItemStack is = ItemStack.deserialize(s);
-						is.setItemMeta((ItemMeta) ConfigurationSerialization.deserializeObject(im));
-						items[i] = is;
-					}
-					else {
-						items[i] = ItemStack.deserialize(s);
-					}
-				}
-				catch (Exception e) {
-					items[i] = null;
-				}
-			}
-		}
-
-		return items;
 	}
 	
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
